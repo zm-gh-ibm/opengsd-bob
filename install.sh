@@ -219,6 +219,7 @@ install_gsd_core_runtime() {
   log_banner "Installing gsd-core runtime into ~/.bob/gsd-core/..."
 
   local GSD_CORE_DIR="$BOB_HOME/gsd-core"
+  local CLAUDE_CORE_DIR="$HOME/.claude/gsd-core"
   local GSD_CORE_RAW="https://raw.githubusercontent.com/open-gsd/gsd-core/${GSD_CORE_BRANCH}/gsd-core"
 
   if [[ -d "$GSD_CORE_DIR" ]]; then
@@ -231,12 +232,22 @@ install_gsd_core_runtime() {
     fi
   fi
 
+  # Fast path: copy from an existing Claude Code installation
+  if [[ -d "$CLAUDE_CORE_DIR/workflows" ]]; then
+    log_info "Found existing Claude Code gsd-core at $CLAUDE_CORE_DIR — copying to $GSD_CORE_DIR"
+    mkdir -p "$GSD_CORE_DIR"
+    cp -r "$CLAUDE_CORE_DIR/." "$GSD_CORE_DIR/"
+    log_success "gsd-core runtime copied from Claude Code installation"
+    return 0
+  fi
+
+  # Standalone path: download everything directly from GitHub
+  log_info "No Claude Code installation found — downloading from GitHub..."
   mkdir -p \
+    "$GSD_CORE_DIR/agents" \
     "$GSD_CORE_DIR/workflows" \
     "$GSD_CORE_DIR/references" \
     "$GSD_CORE_DIR/templates"
-
-  mkdir -p "$GSD_CORE_DIR/agents"
 
   install_gsd_core_agents "$GSD_CORE_DIR/agents"
   install_gsd_core_workflows "$GSD_CORE_DIR/workflows" "$GSD_CORE_RAW/workflows"
