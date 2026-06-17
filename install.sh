@@ -219,7 +219,6 @@ install_gsd_core_runtime() {
   log_banner "Installing gsd-core runtime into ~/.bob/gsd-core/..."
 
   local GSD_CORE_DIR="$BOB_HOME/gsd-core"
-  local CLAUDE_CORE_DIR="$HOME/.claude/gsd-core"
   local GSD_CORE_RAW="https://raw.githubusercontent.com/open-gsd/gsd-core/${GSD_CORE_BRANCH}/gsd-core"
 
   if [[ -d "$GSD_CORE_DIR" ]]; then
@@ -232,31 +231,8 @@ install_gsd_core_runtime() {
     fi
   fi
 
-  # Fast path: copy from an existing Claude Code installation
-  if [[ -d "$CLAUDE_CORE_DIR/workflows" ]]; then
-    log_info "Found existing Claude Code gsd-core at $CLAUDE_CORE_DIR — copying to $GSD_CORE_DIR"
-    mkdir -p "$GSD_CORE_DIR/agents"
-    cp -r "$CLAUDE_CORE_DIR/." "$GSD_CORE_DIR/"
-    # Claude Code keeps agents at ~/.claude/agents/, not inside gsd-core/agents/.
-    # Copy the gsd-* agent definitions across so ~/.bob/gsd-core/agents/ is populated.
-    local CLAUDE_AGENTS_DIR="$HOME/.claude/agents"
-    if [[ -d "$CLAUDE_AGENTS_DIR" ]]; then
-      local agent_copy_count=0
-      for f in "$CLAUDE_AGENTS_DIR"/gsd-*.md; do
-        [[ -f "$f" ]] || continue
-        cp "$f" "$GSD_CORE_DIR/agents/"
-        agent_copy_count=$((agent_copy_count + 1))
-      done
-      log_success "gsd-core runtime copied from Claude Code installation ($agent_copy_count agent definitions)"
-    else
-      log_warn "~/.claude/agents/ not found — agent definitions will be downloaded from GitHub"
-      install_gsd_core_agents "$GSD_CORE_DIR/agents"
-    fi
-    return 0
-  fi
-
-  # Standalone path: download everything directly from GitHub
-  log_info "No Claude Code installation found — downloading from GitHub..."
+  # Download everything directly from GitHub
+  log_info "Downloading gsd-core runtime from GitHub..."
   mkdir -p \
     "$GSD_CORE_DIR/agents" \
     "$GSD_CORE_DIR/workflows" \
@@ -650,9 +626,7 @@ print_next_steps() {
   echo ""
   echo -e "${BOLD}Runtime location:${NC}"
   echo -e "  ${YELLOW}~/.bob/gsd-core/${NC} — workflows, agents, references, templates"
-  echo -e "  Installed automatically by this script via one of:"
-  echo -e "    1. Copied from ${YELLOW}~/.claude/gsd-core/${NC} (if Claude Code is present)"
-  echo -e "    2. Downloaded from ${CYAN}github.com/open-gsd/gsd-core${NC} (standalone)"
+  echo -e "  Installed automatically by this script from ${CYAN}github.com/open-gsd/gsd-core${NC}"
   echo ""
   echo -e "${BOLD}Update anytime:${NC}"
   echo -e "  ${CYAN}curl -fsSL $REPO_URL/install.sh | bash${NC}"
