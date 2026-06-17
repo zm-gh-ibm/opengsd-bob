@@ -236,9 +236,70 @@ install_gsd_core_runtime() {
     "$GSD_CORE_DIR/references" \
     "$GSD_CORE_DIR/templates"
 
+  mkdir -p "$GSD_CORE_DIR/agents"
+
+  install_gsd_core_agents "$GSD_CORE_DIR/agents"
   install_gsd_core_workflows "$GSD_CORE_DIR/workflows" "$GSD_CORE_RAW/workflows"
   install_gsd_core_references "$GSD_CORE_DIR/references" "$GSD_CORE_RAW/references"
   install_gsd_core_templates "$GSD_CORE_DIR/templates" "$GSD_CORE_RAW/templates"
+}
+
+install_gsd_core_agents() {
+  local dest_dir="$1"
+  # Agents live at the repo root (agents/) not inside gsd-core/, so use a
+  # different base URL than the other runtime assets.
+  local base_url="https://raw.githubusercontent.com/open-gsd/gsd-core/${GSD_CORE_BRANCH}/agents"
+  log_info "Downloading gsd-core agent definitions..."
+
+  local agents=(
+    gsd-advisor-researcher
+    gsd-ai-researcher
+    gsd-assumptions-analyzer
+    gsd-code-fixer
+    gsd-code-reviewer
+    gsd-codebase-mapper
+    gsd-debug-session-manager
+    gsd-debugger
+    gsd-doc-classifier
+    gsd-doc-synthesizer
+    gsd-doc-verifier
+    gsd-doc-writer
+    gsd-domain-researcher
+    gsd-eval-auditor
+    gsd-eval-planner
+    gsd-executor
+    gsd-framework-selector
+    gsd-integration-checker
+    gsd-intel-updater
+    gsd-mempalace-curator
+    gsd-nyquist-auditor
+    gsd-pattern-mapper
+    gsd-phase-researcher
+    gsd-plan-checker
+    gsd-planner
+    gsd-project-researcher
+    gsd-research-synthesizer
+    gsd-roadmapper
+    gsd-security-auditor
+    gsd-ui-auditor
+    gsd-ui-checker
+    gsd-ui-researcher
+    gsd-user-profiler
+    gsd-verifier
+  )
+
+  local installed=0
+  local failed=0
+  for agent in "${agents[@]}"; do
+    local dest="$dest_dir/${agent}.md"
+    if curl -fsSL "${base_url}/${agent}.md" -o "$dest" 2>/dev/null; then
+      installed=$((installed + 1))
+    else
+      log_warn "Failed to download agent: ${agent}.md"
+      failed=$((failed + 1))
+    fi
+  done
+  log_success "Agent definitions: $installed installed (failed: $failed)"
 }
 
 install_gsd_core_workflows() {
@@ -519,6 +580,9 @@ verify_installation() {
   local agent_count
   agent_count=$(ls "$AGENTS_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
 
+  local core_agent_count
+  core_agent_count=$(ls "$BOB_HOME/gsd-core/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')
+
   local workflow_count
   workflow_count=$(ls "$BOB_HOME/gsd-core/workflows"/*.md 2>/dev/null | wc -l | tr -d ' ')
 
@@ -530,6 +594,7 @@ verify_installation() {
 
   log_success "Commands installed:  $cmd_count/68 in $COMMANDS_DIR"
   log_success "Agents installed:    $agent_count/34 in $AGENTS_DIR"
+  log_success "Agent definitions:   $core_agent_count/34 in $BOB_HOME/gsd-core/agents/"
   log_success "Workflows installed: $workflow_count in $BOB_HOME/gsd-core/workflows/"
   log_success "References:          $ref_count in $BOB_HOME/gsd-core/references/"
   log_success "Templates:           $tmpl_count in $BOB_HOME/gsd-core/templates/"
