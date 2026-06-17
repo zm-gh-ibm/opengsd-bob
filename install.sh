@@ -19,7 +19,7 @@ REPO_URL="https://raw.githubusercontent.com/zm-gh-ibm/opengsd-bob/main"
 BOB_HOME="${BOB_HOME:-$HOME/.bob}"
 COMMANDS_DIR="$BOB_HOME/commands/gsd"
 AGENTS_DIR="$BOB_HOME/agents"
-GSD_CORE_VERSION="${GSD_CORE_VERSION:-latest}"
+GSD_CORE_BRANCH="${GSD_CORE_BRANCH:-next}"
 
 # Colors
 RED='\033[0;31m'
@@ -40,7 +40,7 @@ log_banner()  { echo -e "\n${BOLD}$*${NC}"; }
 # ---------------------------------------------------------------------------
 check_dependencies() {
   local missing=()
-  for cmd in curl node npm; do
+  for cmd in curl; do
     if ! command -v "$cmd" &>/dev/null; then
       missing+=("$cmd")
     fi
@@ -208,12 +208,18 @@ install_agents() {
 }
 
 # ---------------------------------------------------------------------------
-# Install gsd-core runtime (workflows, templates, references)
+# Install gsd-core runtime (workflows, references, templates)
+# Downloads files directly from open-gsd/gsd-core (next branch) via raw URLs.
+# This mirrors the same curl-per-file pattern used for commands and agents,
+# avoiding the npm --target flag ambiguity and git-clone subdirectory mismatch
+# (the repo's runtime lives at gsd-core/workflows/ inside the repo, but must
+# land at ~/.bob/gsd-core/workflows/ on disk).
 # ---------------------------------------------------------------------------
 install_gsd_core_runtime() {
   log_banner "Installing gsd-core runtime into ~/.bob/gsd-core/..."
 
   local GSD_CORE_DIR="$BOB_HOME/gsd-core"
+  local GSD_CORE_RAW="https://raw.githubusercontent.com/open-gsd/gsd-core/${GSD_CORE_BRANCH}/gsd-core"
 
   if [[ -d "$GSD_CORE_DIR" ]]; then
     log_info "Existing gsd-core runtime found at $GSD_CORE_DIR"
@@ -225,41 +231,280 @@ install_gsd_core_runtime() {
     fi
   fi
 
-  # Install gsd-core runtime to ~/.bob using --target to avoid IDE-specific defaults
-  log_info "Installing via npm: @opengsd/gsd-core@${GSD_CORE_VERSION}..."
-  if command -v npx &>/dev/null; then
-    # Primary: --target installs directly to ~/.bob, suppressing gsd-core's own output
-    if npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --target "$BOB_HOME" &>/dev/null; then
-      log_success "gsd-core runtime installed to $BOB_HOME"
-    elif npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --bob &>/dev/null; then
-      log_success "gsd-core runtime installed with --bob flag"
-    else
-      log_warn "npx install failed. Attempting git clone fallback..."
-      install_gsd_core_runtime_from_git "$GSD_CORE_DIR"
-    fi
-  else
-    log_warn "npx not found. Attempting git clone fallback..."
-    install_gsd_core_runtime_from_git "$GSD_CORE_DIR"
-  fi
+  mkdir -p \
+    "$GSD_CORE_DIR/workflows" \
+    "$GSD_CORE_DIR/references" \
+    "$GSD_CORE_DIR/templates"
+
+  install_gsd_core_workflows "$GSD_CORE_DIR/workflows" "$GSD_CORE_RAW/workflows"
+  install_gsd_core_references "$GSD_CORE_DIR/references" "$GSD_CORE_RAW/references"
+  install_gsd_core_templates "$GSD_CORE_DIR/templates" "$GSD_CORE_RAW/templates"
 }
 
-install_gsd_core_runtime_from_git() {
+install_gsd_core_workflows() {
   local dest_dir="$1"
-  log_info "Cloning open-gsd/gsd-core (next branch) to $dest_dir..."
-  if command -v git &>/dev/null; then
-    git clone --depth=1 --branch next \
-      "https://github.com/open-gsd/gsd-core.git" \
-      "$dest_dir" 2>/dev/null || {
-      log_error "git clone failed. Please manually install gsd-core:"
-      log_error "  git clone -b next https://github.com/open-gsd/gsd-core.git ~/.bob/gsd-core"
-      return 1
-    }
-    log_success "gsd-core runtime cloned to $dest_dir"
-  else
-    log_error "git not found. Please manually install gsd-core runtime:"
-    log_error "  npx -y @opengsd/gsd-core@latest --target ~/.bob"
-    return 1
-  fi
+  local base_url="$2"
+  log_info "Downloading workflows..."
+
+  local workflows=(
+    add-backlog
+    add-phase
+    add-tests
+    add-todo
+    ai-integration-phase
+    analyze-dependencies
+    audit-fix
+    audit-milestone
+    audit-uat
+    autonomous
+    check-todos
+    cleanup
+    code-review
+    code-review-fix
+    complete-milestone
+    debug
+    diagnose-issues
+    discovery-phase
+    discuss-phase
+    discuss-phase-assumptions
+    discuss-phase-power
+    do
+    docs-update
+    edit-phase
+    eval-review
+    execute-phase
+    execute-plan
+    explore
+    extract-learnings
+    fast
+    forensics
+    graduation
+    health
+    help
+    import
+    inbox
+    ingest-docs
+    insert-phase
+    list-phase-assumptions
+    list-workspaces
+    manager
+    map-codebase
+    milestone-summary
+    mvp-phase
+    new-milestone
+    new-project
+    new-workspace
+    next
+    node-repair
+    note
+    pause-work
+    plan-milestone-gaps
+    plan-phase
+    plan-review-convergence
+    plant-seed
+    pr-branch
+    profile-user
+    progress
+    quick
+    reapply-patches
+    remove-phase
+    remove-workspace
+    resume-project
+    review
+    scan
+    secure-phase
+    session-report
+    settings
+    settings-advanced
+    settings-integrations
+    ship
+    sketch
+    sketch-wrap-up
+    spec-phase
+    spike
+    spike-wrap-up
+    stats
+    surface
+    sync-skills
+    thread
+    ui-phase
+    ui-review
+    ultraplan-phase
+    undo
+    update
+    validate-phase
+    verify-work
+    workstreams
+  )
+
+  local installed=0
+  local failed=0
+  for wf in "${workflows[@]}"; do
+    local dest="$dest_dir/${wf}.md"
+    if curl -fsSL "${base_url}/${wf}.md" -o "$dest" 2>/dev/null; then
+      installed=$((installed + 1))
+    else
+      log_warn "Failed to download workflow: ${wf}.md"
+      failed=$((failed + 1))
+    fi
+  done
+  log_success "Workflows: $installed installed (failed: $failed)"
+}
+
+install_gsd_core_references() {
+  local dest_dir="$1"
+  local base_url="$2"
+  log_info "Downloading references..."
+
+  local references=(
+    agent-contracts
+    ai-evals
+    ai-frameworks
+    artifact-types
+    autonomous-smart-discuss
+    checkpoints
+    common-bug-patterns
+    context-budget
+    continuation-format
+    debugger-philosophy
+    decimal-phase-calculation
+    doc-conflict-engine
+    domain-probes
+    edge-probe
+    execute-mvp-tdd
+    executor-examples
+    gate-prompts
+    gates
+    git-integration
+    git-planning-commit
+    ios-scaffold
+    loop-hook-dispatch
+    mandatory-initial-read
+    model-profile-resolution
+    model-profiles
+    mvp-concepts
+    phase-argument-parsing
+    planner-antipatterns
+    planner-chunked
+    planner-gap-closure
+    planner-graphify-auto-update
+    planner-guidance
+    planner-human-verify-mode
+    planner-interface-context
+    planner-load-graph-context
+    planner-mvp-mode
+    planner-reviews
+    planner-revision
+    planner-source-audit
+    planning-config
+    prohibition-probe
+    project-skills-discovery
+    questioning
+    research-documentation-lookup
+    research-philosophy
+    research-verification-protocol
+    revision-loop
+    scout-codebase
+    skeleton-template
+    sketch-interactivity
+    sketch-theme-system
+    sketch-tooling
+    sketch-variant-patterns
+    spidr-splitting
+    tdd
+    thinking-models-debug
+    thinking-models-execution
+    thinking-models-planning
+    thinking-models-research
+    thinking-models-verification
+    thinking-partner
+    ui-brand
+    universal-anti-patterns
+    user-profiling
+    user-story-template
+    verification-overrides
+    verification-patterns
+    verify-mvp-mode
+    workstream-flag
+    worktree-branch-check
+    worktree-path-safety
+  )
+
+  local installed=0
+  local failed=0
+  for ref in "${references[@]}"; do
+    local dest="$dest_dir/${ref}.md"
+    if curl -fsSL "${base_url}/${ref}.md" -o "$dest" 2>/dev/null; then
+      installed=$((installed + 1))
+    else
+      log_warn "Failed to download reference: ${ref}.md"
+      failed=$((failed + 1))
+    fi
+  done
+  log_success "References: $installed installed (failed: $failed)"
+}
+
+install_gsd_core_templates() {
+  local dest_dir="$1"
+  local base_url="$2"
+  log_info "Downloading templates..."
+
+  local templates=(
+    AI-SPEC
+    DEBUG
+    README
+    SECURITY
+    UAT
+    UI-SPEC
+    VALIDATION
+    claude-md
+    config.json
+    context
+    continue-here
+    copilot-instructions
+    debug-subagent-prompt
+    dev-preferences
+    discovery
+    discussion-log
+    milestone-archive
+    milestone
+    phase-prompt
+    planner-subagent-prompt
+    project
+    requirements
+    research
+    retrospective
+    roadmap
+    spec
+    state
+    summary-complex
+    summary-minimal
+    summary-standard
+    summary
+    user-profile
+    user-setup
+    verification-report
+  )
+
+  local installed=0
+  local failed=0
+  for tmpl in "${templates[@]}"; do
+    # config.json has no .md extension
+    local filename
+    if [[ "$tmpl" == "config.json" ]]; then
+      filename="config.json"
+    else
+      filename="${tmpl}.md"
+    fi
+    local dest="$dest_dir/${filename}"
+    if curl -fsSL "${base_url}/${filename}" -o "$dest" 2>/dev/null; then
+      installed=$((installed + 1))
+    else
+      log_warn "Failed to download template: ${filename}"
+      failed=$((failed + 1))
+    fi
+  done
+  log_success "Templates: $installed installed (failed: $failed)"
 }
 
 # ---------------------------------------------------------------------------
@@ -274,11 +519,26 @@ verify_installation() {
   local agent_count
   agent_count=$(ls "$AGENTS_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
 
-  log_success "Commands installed: $cmd_count/68 in $COMMANDS_DIR"
-  log_success "Agents installed:   $agent_count/34 in $AGENTS_DIR"
+  local workflow_count
+  workflow_count=$(ls "$BOB_HOME/gsd-core/workflows"/*.md 2>/dev/null | wc -l | tr -d ' ')
+
+  local ref_count
+  ref_count=$(ls "$BOB_HOME/gsd-core/references"/*.md 2>/dev/null | wc -l | tr -d ' ')
+
+  local tmpl_count
+  tmpl_count=$(ls "$BOB_HOME/gsd-core/templates"/* 2>/dev/null | wc -l | tr -d ' ')
+
+  log_success "Commands installed:  $cmd_count/68 in $COMMANDS_DIR"
+  log_success "Agents installed:    $agent_count/34 in $AGENTS_DIR"
+  log_success "Workflows installed: $workflow_count in $BOB_HOME/gsd-core/workflows/"
+  log_success "References:          $ref_count in $BOB_HOME/gsd-core/references/"
+  log_success "Templates:           $tmpl_count in $BOB_HOME/gsd-core/templates/"
 
   if [[ "$cmd_count" -lt 60 ]]; then
     log_warn "Expected ~68 commands but found $cmd_count. Some commands may be missing."
+  fi
+  if [[ "$workflow_count" -lt 50 ]]; then
+    log_warn "Expected ~88 workflows but found $workflow_count. Some workflows may be missing."
   fi
 }
 
@@ -297,10 +557,6 @@ print_next_steps() {
   echo -e "  ${CYAN}/gsd:progress${NC}    — Check current project status"
   echo -e "  ${CYAN}/gsd:help${NC}        — Show all available commands"
   echo -e "  ${CYAN}/gsd:new-project${NC} — Initialize a new GSD project"
-  echo ""
-  echo -e "${BOLD}Requirements:${NC}"
-  echo -e "  • The gsd-core runtime must be at ${YELLOW}~/.bob/gsd-core/${NC}"
-  echo -e "  • Install it with: ${CYAN}npx -y @opengsd/gsd-core@latest --target ~/.bob${NC}"
   echo ""
   echo -e "${BOLD}Update commands anytime:${NC}"
   echo -e "  ${CYAN}curl -fsSL $REPO_URL/install.sh | bash${NC}"
