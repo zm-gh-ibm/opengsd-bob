@@ -225,15 +225,14 @@ install_gsd_core_runtime() {
     fi
   fi
 
-  # Use npx to install gsd-core runtime (same as Claude install)
+  # Install gsd-core runtime to ~/.bob using --target to avoid IDE-specific defaults
   log_info "Installing via npm: @opengsd/gsd-core@${GSD_CORE_VERSION}..."
   if command -v npx &>/dev/null; then
-    # Install to ~/.bob/gsd-core using the official installer with --bob flag
-    # Falls back to --claude if --bob is not yet supported
-    if npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --bob 2>/dev/null; then
+    # Primary: --target installs directly to ~/.bob, suppressing gsd-core's own output
+    if npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --target "$BOB_HOME" &>/dev/null; then
+      log_success "gsd-core runtime installed to $BOB_HOME"
+    elif npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --bob &>/dev/null; then
       log_success "gsd-core runtime installed with --bob flag"
-    elif npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --target "$BOB_HOME" 2>/dev/null; then
-      log_success "gsd-core runtime installed with --target flag"
     else
       log_warn "npx install failed. Attempting git clone fallback..."
       install_gsd_core_runtime_from_git "$GSD_CORE_DIR"
