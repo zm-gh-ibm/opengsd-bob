@@ -9,13 +9,13 @@ All 68 GSD slash commands from [`open-gsd/gsd-core`](https://github.com/open-gsd
 ## One-liner Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/gsd-bob/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/zm-gh-ibm/opengsd-bob/main/install.sh | bash
 ```
 
 Or with a specific version:
 
 ```bash
-GSD_CORE_VERSION="1.5.0" curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/gsd-bob/main/install.sh | bash
+GSD_CORE_VERSION="1.5.0" curl -fsSL https://raw.githubusercontent.com/zm-gh-ibm/opengsd-bob/main/install.sh | bash
 ```
 
 ---
@@ -188,7 +188,7 @@ git clone --depth=1 --branch next \
 
 ```bash
 # Re-run the installer (safe to run multiple times)
-curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/gsd-bob/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/zm-gh-ibm/opengsd-bob/main/install.sh | bash
 ```
 
 Or from within Bob:

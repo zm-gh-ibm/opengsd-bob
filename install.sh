@@ -15,7 +15,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-REPO_URL="https://raw.githubusercontent.com/YOUR_ORG/gsd-bob/main"
+REPO_URL="https://raw.githubusercontent.com/zm-gh-ibm/opengsd-bob/main"
 BOB_HOME="${BOB_HOME:-$HOME/.bob}"
 COMMANDS_DIR="$BOB_HOME/commands/gsd"
 AGENTS_DIR="$BOB_HOME/agents"
